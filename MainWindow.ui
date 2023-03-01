@@ -1,0 +1,274 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>Dialog</class>
+ <widget class="QDialog" name="Dialog">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>960</width>
+    <height>660</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>文件检索 子安专用</string>
+  </property>
+  <property name="windowIcon">
+   <iconset>
+    <normaloff>../zincsearch_logo_icon_249096.ico</normaloff>../zincsearch_logo_icon_249096.ico</iconset>
+  </property>
+  <widget class="QLineEdit" name="lineEdit_Filter">
+   <property name="geometry">
+    <rect>
+     <x>70</x>
+     <y>20</y>
+     <width>341</width>
+     <height>20</height>
+    </rect>
+   </property>
+  </widget>
+  <widget class="QLabel" name="label">
+   <property name="geometry">
+    <rect>
+     <x>10</x>
+     <y>24</y>
+     <width>54</width>
+     <height>12</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>检索条件</string>
+   </property>
+  </widget>
+  <widget class="QPushButton" name="pushButton_SearchFiles">
+   <property name="geometry">
+    <rect>
+     <x>520</x>
+     <y>20</y>
+     <width>75</width>
+     <height>23</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>开始检索</string>
+   </property>
+  </widget>
+  <widget class="QTableWidget" name="tableWidget_SearchResult">
+   <property name="geometry">
+    <rect>
+     <x>6</x>
+     <y>80</y>
+     <width>948</width>
+     <height>371</height>
+    </rect>
+   </property>
+   <property name="minimumSize">
+    <size>
+     <width>871</width>
+     <height>321</height>
+    </size>
+   </property>
+   <property name="columnCount">
+    <number>2</number>
+   </property>
+   <column>
+    <property name="text">
+     <string>类型</string>
+    </property>
+   </column>
+   <column>
+    <property name="text">
+     <string>路径</string>
+    </property>
+   </column>
+  </widget>
+  <widget class="QLabel" name="label_2">
+   <property name="geometry">
+    <rect>
+     <x>10</x>
+     <y>60</y>
+     <width>54</width>
+     <height>12</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>检索结果</string>
+   </property>
+  </widget>
+  <widget class="QLabel" name="label_3">
+   <property name="geometry">
+    <rect>
+     <x>10</x>
+     <y>458</y>
+     <width>61</width>
+     <height>20</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>已索引目录</string>
+   </property>
+  </widget>
+  <widget class="QTableWidget" name="tableWidget_RootPath">
+   <property name="geometry">
+    <rect>
+     <x>6</x>
+     <y>483</y>
+     <width>948</width>
+     <height>171</height>
+    </rect>
+   </property>
+   <column>
+    <property name="text">
+     <string>目录</string>
+    </property>
+   </column>
+   <column>
+    <property name="text">
+     <string>文件夹数</string>
+    </property>
+   </column>
+   <column>
+    <property name="text">
+     <string>文件数</string>
+    </property>
+   </column>
+   <column>
+    <property name="text">
+     <string>更新日期</string>
+    </property>
+   </column>
+   <column>
+    <property name="text">
+     <string>状态</string>
+    </property>
+   </column>
+  </widget>
+  <widget class="QPushButton" name="pushButton_BulidFilesIndex">
+   <property name="geometry">
+    <rect>
+     <x>561</x>
+     <y>456</y>
+     <width>91</width>
+     <height>23</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>建立目录索引</string>
+   </property>
+  </widget>
+  <widget class="QLabel" name="label_SearchResultNum">
+   <property name="geometry">
+    <rect>
+     <x>70</x>
+     <y>60</y>
+     <width>451</width>
+     <height>12</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>共检索到满足条件的x个文件夹、x个文件</string>
+   </property>
+  </widget>
+  <widget class="QRadioButton" name="radioButton_Common">
+   <property name="geometry">
+    <rect>
+     <x>435</x>
+     <y>14</y>
+     <width>89</width>
+     <height>16</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>普通匹配</string>
+   </property>
+   <property name="autoRepeat">
+    <bool>false</bool>
+   </property>
+  </widget>
+  <widget class="QRadioButton" name="radioButton_RegExp">
+   <property name="geometry">
+    <rect>
+     <x>435</x>
+     <y>31</y>
+     <width>89</width>
+     <height>16</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>正则匹配</string>
+   </property>
+  </widget>
+  <widget class="QPushButton" name="pushButton_SetDefaultSearchPath">
+   <property name="geometry">
+    <rect>
+     <x>662</x>
+     <y>456</y>
+     <width>91</width>
+     <height>23</height>
+    </rect>
+   </property>
+   <property name="toolTip">
+    <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;br/&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+   </property>
+   <property name="text">
+    <string>设为默认目录</string>
+   </property>
+  </widget>
+  <widget class="QPushButton" name="pushButton_CleanInvalidPath">
+   <property name="geometry">
+    <rect>
+     <x>864</x>
+     <y>456</y>
+     <width>91</width>
+     <height>23</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>清理无效目录</string>
+   </property>
+  </widget>
+  <widget class="QPushButton" name="pushButton_DeleteChoosedPath">
+   <property name="geometry">
+    <rect>
+     <x>763</x>
+     <y>456</y>
+     <width>91</width>
+     <height>23</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>删除选中目录</string>
+   </property>
+  </widget>
+  <widget class="QLabel" name="label_BuildingFilesIndex">
+   <property name="geometry">
+    <rect>
+     <x>85</x>
+     <y>458</y>
+     <width>421</width>
+     <height>20</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>正在建立目录索引......</string>
+   </property>
+  </widget>
+  <zorder>lineEdit_Filter</zorder>
+  <zorder>label</zorder>
+  <zorder>pushButton_SearchFiles</zorder>
+  <zorder>label_2</zorder>
+  <zorder>label_3</zorder>
+  <zorder>tableWidget_RootPath</zorder>
+  <zorder>pushButton_BulidFilesIndex</zorder>
+  <zorder>tableWidget_SearchResult</zorder>
+  <zorder>label_SearchResultNum</zorder>
+  <zorder>radioButton_Common</zorder>
+  <zorder>radioButton_RegExp</zorder>
+  <zorder>pushButton_SetDefaultSearchPath</zorder>
+  <zorder>pushButton_CleanInvalidPath</zorder>
+  <zorder>pushButton_DeleteChoosedPath</zorder>
+  <zorder>label_BuildingFilesIndex</zorder>
+ </widget>
+ <resources/>
+ <connections/>
+</ui>
