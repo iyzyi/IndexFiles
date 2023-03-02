@@ -371,7 +371,7 @@ class Ui_Dialog(object):
             except Exception as e:
                 QtWidgets.QMessageBox.critical(self, '打开{}失败'.format(type), '{}'.format(e), QtWidgets.QMessageBox.Ok, QtWidgets.QMessageBox.Ok)
         else:
-            QtWidgets.QMessageBox.critical(self, '打开{}失败'.format(type), '{} {} 不存在，可能是离线{}'.format(name, path, name), QtWidgets.QMessageBox.Ok, QtWidgets.QMessageBox.Ok)
+            QtWidgets.QMessageBox.critical(self, '打开{}失败'.format(type), '{} {} 不存在，可能是离线{}'.format(type, path, type), QtWidgets.QMessageBox.Ok, QtWidgets.QMessageBox.Ok)
 
 
     # 单击 检索结果 表格的一行时，勾选或取消勾选
