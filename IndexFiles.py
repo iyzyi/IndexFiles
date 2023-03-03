@@ -247,7 +247,8 @@ class MySqlite:
             id, pid, name, type = one
 
             if type == 'F' or type == 'D':
-                file_path = self.get_parent(vol_table_name, pid) + '\\' + name
+                parent_path = self.get_parent(vol_table_name, pid)
+                file_path = merge_path(parent_path, name)
             elif type == 'R':
                 file_path = name
 
