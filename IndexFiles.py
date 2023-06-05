@@ -69,20 +69,66 @@ class MySqlite:
                     (id         INTEGER     PRIMARY KEY     AUTOINCREMENT,
                     pid         INTEGER,
                     name        VARCHAR,
-                    type        CHAR(1) );'''.format(vol_table_name)
+                    type        CHAR(1),
+                    mtime       INTEGER );'''.format(vol_table_name)
         self.cur.execute(sql)
         self.conn.commit()
 
 
-    def insert_into_vol_table(self, vol_table_name, pid, name, type):
-        self.cur.execute('INSERT INTO {} VALUES(NULL,?,?,?)'.format(vol_table_name), (pid, name, type))
+    def insert_into_vol_table(self, vol_table_name, pid, name, type, mtime):
+        self.cur.execute('INSERT INTO {} VALUES(NULL,?,?,?,?)'.format(vol_table_name), (pid, name, type, mtime))
         self.conn.commit()
         return self.cur.lastrowid
 
 
     def insert_root_path_into_vol_table(self, vol_table_name, root_path):
-        root_path_id = self.insert_into_vol_table(vol_table_name, 0, root_path, 'R')
+        root_path_id = self.insert_into_vol_table(vol_table_name, 0, root_path, 'R', 0)
         return root_path_id
+
+
+    def get_id_and_name(self, vol_table_name, pid):
+        sql = "SELECT id, name FROM {} WHERE pid={};".format(vol_table_name, pid)
+        self.cur.execute(sql)
+        values = self.cur.fetchall()
+        return values
+    
+
+    def get_sub_ids(self, vol_table_name, pid):
+        sql = "SELECT id FROM {} WHERE pid={};".format(vol_table_name, pid)
+        self.cur.execute(sql)
+        values = self.cur.fetchall()
+        return [v[0] for v in values]
+    
+
+    def delete_item_by_id(self, table_name, id):
+        sql = "DELETE FROM {} WHERE id={}".format(table_name, id)
+        self.cur.execute(sql)
+        self.conn.commit()
+        
+
+    def delete_item_by_pid(self, table_name, pid):
+        sql = "DELETE FROM {} WHERE pid={}".format(table_name, pid)
+        self.cur.execute(sql)
+        self.conn.commit()
+
+
+    def get_root_path_id(self, vol_table_name, root_path):
+        sql = "SELECT id FROM {} WHERE name='{}';".format(vol_table_name, root_path.replace("'", "''"))
+        self.cur.execute(sql)
+        values = self.cur.fetchall()
+        return None if values == [] else values[0][0]
+
+
+    def get_id_and_mtime(self, table_name, pid, name):
+        sql = "SELECT id, mtime FROM {} WHERE pid={} and name='{}';".format(table_name, pid, name.replace("'", "''"))
+        self.cur.execute(sql)
+        values = self.cur.fetchall()
+        return None if values == [] else values[0]
+    
+    def update_mtime_vol_table(self, vol_table_name, id, mtime):
+        sql = "UPDATE {} SET mtime={} WHERE id={};".format(vol_table_name, mtime, id)
+        self.cur.execute(sql)
+        self.conn.commit()
 
 
     def create_intro_vols_table(self):
@@ -138,20 +184,55 @@ class MySqlite:
         self.cur.execute(sql)
         self.conn.commit()
 
+
+    # 删除此项及其全部子项的记录
+    def delete_items(self, table_name, id, root=True):
+        sub_ids = self.get_sub_ids(table_name, id)
+        for sub_id in sub_ids:
+            self.delete_items(table_name, sub_id, False)
+        self.delete_item_by_pid(table_name, id)
+        if root == True:
+            self.delete_item_by_id(table_name, id)
     
+
     def list_files(self, path, pid, table_name):
         try:
             files = os.listdir(path)
         except PermissionError:
-            return 
+            return
         else:
+
+            # 从数据库中删除 数据库中含有 而 本地硬盘中不含有 的文件(夹) 的记录
+            res = self.get_id_and_name(table_name, pid)
+            if res:
+                for id, name in res:
+                    if name not in files:
+                        self.delete_items(table_name, id)
+
+            # 开始list
             for file in files:
                 file_path = os.path.join(path, file)
-                if os.path.isdir(file_path):
-                    id = self.insert_into_vol_table(table_name, pid, file, 'D')
-                    self.list_files(file_path, id, table_name)
+                mtime_disk = int(os.path.getmtime(file_path))
+                res = self.get_id_and_mtime(table_name, pid, file)
+                
+                # 数据库中无此项，直接插入
+                if res == None:
+                    if os.path.isdir(file_path):                             
+                        id = self.insert_into_vol_table(table_name, pid, file, 'D', mtime_disk)
+                        self.list_files(file_path, id, table_name)
+                    else:
+                        id = self.insert_into_vol_table(table_name, pid, file, 'F', mtime_disk)
+
+                # 数据库中有此项，判断修改时间是否相同，相同则跳过，不同则更新。
                 else:
-                    id = self.insert_into_vol_table(table_name, pid, file, 'F')
+                    id, mtime_database = res[0], res[1]
+                    if os.path.isdir(file_path):
+                        if mtime_disk != mtime_database:
+                            self.update_mtime_vol_table(table_name, id, mtime_disk)
+                            self.list_files(file_path, id, table_name)
+                    else:
+                        if mtime_disk != mtime_database:
+                            self.update_mtime_vol_table(table_name, id, mtime_disk)
 
 
     def final_summary(self, root_path, vol_table_name):
@@ -194,20 +275,24 @@ class MySqlite:
             print('[ERROR] {} 不存在或非有效目录'.format(root_path))
             return
 
-        # 如果以前索引过此路径，则直接删除以前的相关索引数据
-        if self.exists_table(vol_table_name):
-            self.DeleteFilesIndex(root_path)
+        # # 如果以前索引过此路径，则直接删除以前的相关索引数据
+        # if self.exists_table(vol_table_name):
+        #     self.DeleteFilesIndex(root_path)
 
-        # 将本vol的相关信息写入intro_vol_table表中
-        self.insert_into_intro_vols_table(vol_table_name, root_path)
+        if not self.exists_table(vol_table_name):
+            # 将本vol的相关信息写入intro_vol_table表中
+            self.insert_into_intro_vols_table(vol_table_name, root_path)
 
-        # 创建表
-        vol_table_name = self.root_path_to_vol_table_name(root_path)
-        self.create_vol_table(vol_table_name)
+            # 创建表
+            vol_table_name = self.root_path_to_vol_table_name(root_path)
+            self.create_vol_table(vol_table_name)
 
-        # 遍历文件
+        # 插入根目录
+        root_path_id = self.get_root_path_id(vol_table_name, root_path)
+        if not root_path_id:
+            root_path_id = self.insert_root_path_into_vol_table(vol_table_name, root_path)
+        
         print('[INFO] 正在{} 目录下进行文件索引'.format(root_path))
-        root_path_id = self.insert_root_path_into_vol_table(vol_table_name, root_path)
         self.list_files(root_path, root_path_id, vol_table_name)
 
         # 更新intro_vol_table表中的本vol的相关信息
@@ -358,7 +443,7 @@ class MySqlite:
 
 
 if __name__ == '__main__':
-    root_path = r'D:\\'
+    root_path = r'D:\下载'
     
     db = MySqlite()
     
@@ -379,7 +464,7 @@ if __name__ == '__main__':
     # db.CleanInvalidData()
 
     # 展示已索引目录
-    #db.DisplayPaths()
+    # db.DisplayPaths()
 
     #db.RecordLastFilterMode('regexp')
     #print(db.GetLastFilterMode())
