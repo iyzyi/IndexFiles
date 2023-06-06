@@ -166,8 +166,10 @@ class Ui_Dialog(object):
         self.pushButton_DeleteChoosedPath.raise_()
         self.label_BuildingFilesIndex.raise_()
 
+        self.db = MySqlite()
         self.retranslateUi(Dialog)
         QtCore.QMetaObject.connectSlotsByName(Dialog)
+        
 
     def retranslateUi(self, Dialog):
         _translate = QtCore.QCoreApplication.translate
@@ -233,8 +235,6 @@ class Ui_Dialog(object):
 
 
     def iyzyiChangeUI(self):
-        self.db = MySqlite()
-
         # 检索结果 表格
         # 表格选中一整行
         self.tableWidget_SearchResult.setSelectionBehavior(QtWidgets.QTableWidget.SelectRows)

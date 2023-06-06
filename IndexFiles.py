@@ -1,4 +1,4 @@
-import sqlite3, os, re, hashlib, datetime
+import sqlite3, os, re, hashlib, datetime, time
 
 def get_md5(string):
     md5 = hashlib.md5()
@@ -19,6 +19,33 @@ def merge_path(path1, path2):
 
 def get_current_time_stamp():
     return int(datetime.datetime.now().timestamp())
+
+
+# 删除一个文件只会更新其父文件夹的修改时间，不会更改祖先文件夹的修改时间，
+# 因而需要通过此函数，递归更新所有祖先文件夹的修改时间。
+def update_folder_modify_time(path):
+    try:
+        files = os.listdir(path)
+    except PermissionError:
+        return
+    else:
+        max_mtime = 0
+        for file in files:
+            file_path = os.path.join(path, file)
+            if os.path.isdir(file_path):
+                update_folder_modify_time(file_path)
+            
+                mtime = os.path.getmtime(file_path)
+                if mtime > max_mtime:
+                    max_mtime = mtime
+                
+        self_mtime = os.path.getmtime(path)
+        if self_mtime > max_mtime:
+            max_mtime = self_mtime
+        os.utime(path, (time.time(), max_mtime))
+        # if self_mtime != max_mtime:
+        #     print('{} -> {} \t | {}'.format(self_mtime, max_mtime, path))
+
 
 class MySqlite:
 
@@ -86,28 +113,30 @@ class MySqlite:
         return root_path_id
 
 
-    def get_id_and_name(self, vol_table_name, pid):
-        sql = "SELECT id, name FROM {} WHERE pid={};".format(vol_table_name, pid)
+    def get_id_and_name_and_type_and_mtime(self, vol_table_name, pid):
+        sql = "SELECT id, name, type, mtime FROM {} WHERE pid={};".format(vol_table_name, pid)
         self.cur.execute(sql)
         values = self.cur.fetchall()
         return values
     
 
-    def get_sub_ids(self, vol_table_name, pid):
-        sql = "SELECT id FROM {} WHERE pid={};".format(vol_table_name, pid)
+    def get_sub_id_and_type(self, vol_table_name, pid):
+        sql = "SELECT id, type FROM {} WHERE pid={};".format(vol_table_name, pid)
         self.cur.execute(sql)
         values = self.cur.fetchall()
-        return [v[0] for v in values]
+        return values
     
 
     def delete_item_by_id(self, table_name, id):
         sql = "DELETE FROM {} WHERE id={}".format(table_name, id)
+        #print(sql)
         self.cur.execute(sql)
         self.conn.commit()
         
 
     def delete_item_by_pid(self, table_name, pid):
         sql = "DELETE FROM {} WHERE pid={}".format(table_name, pid)
+        #print(sql)
         self.cur.execute(sql)
         self.conn.commit()
 
@@ -186,11 +215,13 @@ class MySqlite:
 
 
     # 删除此项及其全部子项的记录
-    def delete_items(self, table_name, id, root=True):
-        sub_ids = self.get_sub_ids(table_name, id)
-        for sub_id in sub_ids:
-            self.delete_items(table_name, sub_id, False)
-        self.delete_item_by_pid(table_name, id)
+    def delete_items(self, table_name, id, type='', root=True):
+        items = self.get_sub_id_and_type(table_name, id)
+        for sub_id, sub_type in items:
+            if sub_type != 'F':
+                self.delete_items(table_name, sub_id, sub_type, False)
+        if type != 'F':
+            self.delete_item_by_pid(table_name, id)
         if root == True:
             self.delete_item_by_id(table_name, id)
     
@@ -203,17 +234,32 @@ class MySqlite:
         else:
 
             # 从数据库中删除 数据库中含有 而 本地硬盘中不含有 的文件(夹) 的记录
-            res = self.get_id_and_name(table_name, pid)
-            if res:
-                for id, name in res:
+            db_data = self.get_id_and_name_and_type_and_mtime(table_name, pid)
+            db_files_dict = {}
+            if db_data:
+                for id, name, type, mtime in db_data:
+                    key = type + name
+                    db_files_dict[key] = (id, mtime)
+                
                     if name not in files:
                         self.delete_items(table_name, id)
+                    else:
+                        file_path = os.path.join(path, name)
+                        if (type == 'F' and os.path.isdir(file_path)) or (type == 'D' and os.path.isfile(file_path)):
+                            self.delete_items(table_name, id)
+
+            def get_file_info(type, file_name):
+                key = type + file_name
+                return db_files_dict[key] if key in db_files_dict else None
 
             # 开始list
             for file in files:
                 file_path = os.path.join(path, file)
                 mtime_disk = int(os.path.getmtime(file_path))
-                res = self.get_id_and_mtime(table_name, pid, file)
+                # res = self.get_id_and_mtime(table_name, pid, file)
+
+                type = 'F' if os.path.isfile(file_path) else 'D'
+                res = get_file_info(type, file)
                 
                 # 数据库中无此项，直接插入
                 if res == None:
@@ -226,7 +272,7 @@ class MySqlite:
                 # 数据库中有此项，判断修改时间是否相同，相同则跳过，不同则更新。
                 else:
                     id, mtime_database = res[0], res[1]
-                    if os.path.isdir(file_path):
+                    if type == 'D':
                         if mtime_disk != mtime_database:
                             self.update_mtime_vol_table(table_name, id, mtime_disk)
                             self.list_files(file_path, id, table_name)
@@ -274,6 +320,19 @@ class MySqlite:
         if not os.path.exists(root_path) or not os.path.isdir(root_path):
             print('[ERROR] {} 不存在或非有效目录'.format(root_path))
             return
+        
+        # 删除一个文件只会更新其父文件夹的修改时间，不会更改祖先文件夹的修改时间，
+        # 因而需要通过此函数，递归更新所有祖先文件夹的修改时间。
+        print('[INFO] 正在更新{} 目录下的所有文件夹的修改时间'.format(root_path))
+        update_folder_modify_time(root_path)
+        
+        # 如果以前索引过此路径，且未索引完，则删除相关索引数据
+        sql = "SELECT vol_path FROM {} WHERE working='T' and vol_name='{}'".format(self.intro_vol_table_name, vol_table_name)
+        self.cur.execute(sql)
+        res = self.cur.fetchall()
+        for item in res:
+            root_path = item[0]
+            self.DeleteFilesIndex(root_path)
 
         # # 如果以前索引过此路径，则直接删除以前的相关索引数据
         # if self.exists_table(vol_table_name):
@@ -443,12 +502,18 @@ class MySqlite:
 
 
 if __name__ == '__main__':
-    root_path = r'D:\下载'
+    root_path = r'Y:\\'
     
     db = MySqlite()
     
+    import time
+    start = time.time()
+
     # 建立文件索引
-    #db.BuildFilesIndex(root_path)
+    db.BuildFilesIndex(root_path)
+
+    end = time.time()
+    print(end - start)
 
     # 进行文件检索
     # db.SearchFiles(root_path)
