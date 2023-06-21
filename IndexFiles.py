@@ -501,19 +501,84 @@ class MySqlite:
             self.update_settings_table('default_search_paths', value)
 
 
+    # 显示目录下的所有文件（夹）
+    def ShowFilesUnderDirByPath(self, target_path):
+        # 获取target_path对应的vol的path及name
+        target_root_vol_path, target_root_vol_name = '', ''
+        for item in self.DisplayPaths():
+            vol_id, vol_name, vol_path, dirs_num, files_num, update_time, writing = item
+            if writing == 'F':
+                if target_path.startswith(vol_path):
+                    target_root_vol_path = vol_path
+                    target_root_vol_name = vol_name
+        if target_root_vol_path == '' or target_root_vol_name == '':
+            print('[ERROR] 已索引的目录中不包含目标文件夹')
+            return None
+
+        # 获取target_path在vol中对应的id        
+        folder_names = target_path[len(vol_path):].replace('/', '\\').split('\\')
+        folder_id = 1
+        if not (len(folder_names) == 1 and folder_names[0] == ''):
+            success = True
+            for folder_name in folder_names:
+                sql = "SELECT * FROM {} WHERE pid={} and name='{}'".format(target_root_vol_name, folder_id, folder_name)
+                self.cur.execute(sql)
+                res = self.cur.fetchall()
+                if len(res) > 0:
+                    folder_id = res[0][0]
+                else:
+                    success = False
+            if not success:
+                print('[ERROR] 已索引的目录中未查找到目标文件夹')
+                return None
+        
+        # 显示目录下的所有文件（夹）
+        return self.ShowFilesUnderDirByID(target_root_vol_name, folder_id)
+
+    
+    # 显示目录下的所有文件（夹）
+    def ShowFilesUnderDirByID(self, vol_name, target_path_id):
+        target_path = self.get_parent(vol_name, target_path_id)
+
+        result = []
+        files_num = 0
+        dirs_num = 0
+        sql = "SELECT id, pid, name, type FROM {} WHERE pid={}".format(vol_name, target_path_id)
+        self.cur.execute(sql)
+        for one in self.cur.fetchall():
+            id, pid, name, type = one
+
+            if type == 'F' or type == 'D':
+                parent_path = self.get_parent(vol_name, pid)
+                file_path = merge_path(parent_path, name)
+            elif type == 'R':
+                file_path = name
+            
+            if type == 'F':
+                files_num += 1
+            elif type == 'D' or type == 'R':
+                dirs_num += 1
+
+            result.append((file_path, type))
+        
+        print('[LIST] {} 目录下共{}个文件夹，{}个文件'.format(target_path, dirs_num, files_num))
+        #print(result)
+        return target_path, result, dirs_num, files_num
+
+
 if __name__ == '__main__':
     root_path = r'Y:\\'
     
     db = MySqlite()
     
-    import time
-    start = time.time()
+    # import time
+    # start = time.time()
 
     # 建立文件索引
-    db.BuildFilesIndex(root_path)
+    # db.BuildFilesIndex(root_path)
 
-    end = time.time()
-    print(end - start)
+    # end = time.time()
+    # print(end - start)
 
     # 进行文件检索
     # db.SearchFiles(root_path)
@@ -533,3 +598,7 @@ if __name__ == '__main__':
 
     #db.RecordLastFilterMode('regexp')
     #print(db.GetLastFilterMode())
+
+    # 显示目录下的所有文件（夹）
+    target_path = r'D:\Github\crawler\aitaosir'
+    db.ShowFilesUnderDirByPath(target_path)

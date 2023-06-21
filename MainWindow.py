@@ -385,15 +385,17 @@ class Ui_Dialog(object):
             self.tableWidget_SearchResult.row_select_status[row] = False
 
 
-    # 双击 已索引目录 表格的一行时，打开相应目录
+    # 双击 已索引目录 表格的一行时，显示对应文件夹内的文件（夹）
     def doubleClicked_RootPathRow(self, Item):
         row = Item.row()  # 获取行数
         root_path = self.tableWidget_RootPath.item(row, 0).text().lstrip(' ')
-        if os.path.exists(root_path):
-            os.startfile(root_path)
-        else:
-            QtWidgets.QMessageBox.critical(self, '打开索引目录失败', '目录 {} 不存在，可能是离线目录'.format(root_path), QtWidgets.QMessageBox.Ok, QtWidgets.QMessageBox.Ok)
-    
+        # if os.path.exists(root_path):
+        #     os.startfile(root_path)
+        # else:
+        #     QtWidgets.QMessageBox.critical(self, '打开索引目录失败', '目录 {} 不存在，可能是离线目录'.format(root_path), QtWidgets.QMessageBox.Ok, QtWidgets.QMessageBox.Ok)
+        
+        self.show_files_under_dir_by_path(root_path)
+
 
     # 单击 已索引目录 表格的一行时，勾选或取消勾选
     def clicked_RootPathRow(self, Item):
@@ -506,18 +508,55 @@ class Ui_Dialog(object):
                 self.display_root_paths()
 
 
+    # 显示目录下的所有文件（夹）
+    def show_files_under_dir_by_path(self, target_path):
+        # 清空原有数据
+        self.tableWidget_SearchResult.row_select_status = []
+        row_count = self.tableWidget_SearchResult.rowCount()
+        for i in range(row_count):        
+            self.tableWidget_SearchResult.removeRow(0)
+        self.tableWidget_SearchResult.repaint()
+
+        # 获取数据
+        target_path, result, dirs_num, files_num = self.db.ShowFilesUnderDirByPath(target_path)
+
+        for item in result:
+            file_path, type = item
+
+            # 尾部插入一行
+            row_count = self.tableWidget_SearchResult.rowCount()
+            self.tableWidget_SearchResult.insertRow(row_count)
+
+            def Item(value, center=True):
+                item = QtWidgets.QTableWidgetItem(value)
+                item.setFlags(item.flags() & ~QtCore.Qt.ItemIsSelectable)
+                if center:
+                    item.setTextAlignment(QtCore.Qt.AlignHCenter | QtCore.Qt.AlignVCenter)
+                return item
+
+            # 填充相关数据
+            self.tableWidget_SearchResult.setItem(row_count, 0, Item('文件' if type=='F' else '目录'))
+            self.tableWidget_SearchResult.setItem(row_count, 1, Item(file_path, False))
+
+            self.tableWidget_SearchResult.row_select_status.append(False)
+
+        self.label_SearchResultNum.setText('{} 目录下共{}个文件夹，{}个文件'.format(target_path, dirs_num, files_num))
+
+
     # 查找结果 右键菜单
     def tableWidget_SearchResult_RbuttonMenu(self, pos):
         # 添加右键菜单
         menu = QtWidgets.QMenu() #实例化菜单
-        menu_action = ['打开选中项所在文件夹', '打开选中项', '全部勾选', '全部取消勾选', '复制选中项路径', '复制全部检索结果']
-        action_open_folder = menu.addAction(menu_action[0])
-        action_open_file_or_dir = menu.addAction(menu_action[1])
-        action_select_all = menu.addAction(menu_action[2])
-        action_deselect_all = menu.addAction(menu_action[3])
-        action_copy_path = menu.addAction(menu_action[4])
-        action_copy_search_result = menu.addAction(menu_action[5])
+        menu_action = ['显示选中项子文件(夹)', '打开选中项所在文件夹', '打开选中项', '全部勾选', '全部取消勾选', '复制选中项路径', '复制全部检索结果']
+        action_show_files_under_dir = menu.addAction(menu_action[0])
+        action_open_folder = menu.addAction(menu_action[1])
+        action_open_file_or_dir = menu.addAction(menu_action[2])
+        action_select_all = menu.addAction(menu_action[3])
+        action_deselect_all = menu.addAction(menu_action[4])
+        action_copy_path = menu.addAction(menu_action[5])
+        action_copy_search_result = menu.addAction(menu_action[6])
         action = menu.exec_(self.mapToGlobal(self.mapFromGlobal(QtGui.QCursor.pos())))
+
 
         # 获取选中项
         def get_choiced_paths():
@@ -528,11 +567,37 @@ class Ui_Dialog(object):
                 paths.append(path)
             return paths
         
+
+        # 获取选中项
+        def get_choiced_paths_and_type():
+            paths = []
+            select_rows = self.tableWidget_SearchResult.get_selectd_rows()
+            for row in select_rows:
+                path = self.tableWidget_SearchResult.item(row, 1).text()
+                type = self.tableWidget_SearchResult.item(row, 0).text()
+                paths.append((path, type))
+            return paths
+        
+
+        # 显示选中项的子文件（夹）
+        def action_show_files_under_dir_func():
+            paths_and_type = get_choiced_paths_and_type()
+            if len(paths_and_type) == 0:
+                QtWidgets.QMessageBox.information(self, menu_action[0], '没有选中项', QtWidgets.QMessageBox.Ok, QtWidgets.QMessageBox.Ok)
+            elif len(paths_and_type) > 1:
+                QtWidgets.QMessageBox.information(self, menu_action[0], '只能选中一项，当前选择的项过多', QtWidgets.QMessageBox.Ok, QtWidgets.QMessageBox.Ok)
+            else:
+                if paths_and_type[0][1] == '文件':
+                    QtWidgets.QMessageBox.information(self, menu_action[0], '选中项必须是目录', QtWidgets.QMessageBox.Ok, QtWidgets.QMessageBox.Ok)
+                else:
+                    self.show_files_under_dir_by_path(paths_and_type[0][0])
+
+
         # 打开所在文件夹
         def action_open_folder_func():
             paths = get_choiced_paths()
             if len(paths) == 0:
-                QtWidgets.QMessageBox.information(self, menu_action[0], '没有选中项', QtWidgets.QMessageBox.Ok, QtWidgets.QMessageBox.Ok)
+                QtWidgets.QMessageBox.information(self, menu_action[1], '没有选中项', QtWidgets.QMessageBox.Ok, QtWidgets.QMessageBox.Ok)
                 return
             
             exists_folders = []
@@ -552,7 +617,7 @@ class Ui_Dialog(object):
             not_exists_folders = list(set(list(not_exists_folders)))
             
             message = '以下文件夹存在：\n{}\n\n以下文件夹不存在：\n{}\n\n是否继续打开存在的文件夹'.format('\n'.join(exists_folders) if exists_folders else '无', '\n'.join(not_exists_folders) if not_exists_folders else '无')
-            choice = QtWidgets.QMessageBox.question(self, menu_action[0], message, QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No, QtWidgets.QMessageBox.No)
+            choice = QtWidgets.QMessageBox.question(self, menu_action[1], message, QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No, QtWidgets.QMessageBox.No)
             if choice == QtWidgets.QMessageBox.Yes:
                 for path in exists_folders:
                     os.startfile(path)
@@ -561,7 +626,7 @@ class Ui_Dialog(object):
         def action_open_file_or_dir_func():
             paths = get_choiced_paths()
             if len(paths) == 0:
-                QtWidgets.QMessageBox.information(self, menu_action[1], '没有选中项', QtWidgets.QMessageBox.Ok, QtWidgets.QMessageBox.Ok)
+                QtWidgets.QMessageBox.information(self, menu_action[2], '没有选中项', QtWidgets.QMessageBox.Ok, QtWidgets.QMessageBox.Ok)
                 return
 
             exists_paths = []
@@ -573,7 +638,7 @@ class Ui_Dialog(object):
                     not_exists_paths.append(path)
 
             message = '以下文件(夹)存在：\n{}\n\n以下文件(夹)不存在：\n{}\n\n是否继续打开存在的文件(夹)'.format('\n'.join(exists_paths) if exists_paths else '无', '\n'.join(not_exists_paths) if not_exists_paths else '无')
-            choice = QtWidgets.QMessageBox.question(self, menu_action[1], message, QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No, QtWidgets.QMessageBox.No)
+            choice = QtWidgets.QMessageBox.question(self, menu_action[2], message, QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No, QtWidgets.QMessageBox.No)
             if choice == QtWidgets.QMessageBox.Yes:
                 for path in exists_paths:
                     try:
@@ -612,6 +677,8 @@ class Ui_Dialog(object):
             pyperclip.copy(data)
 
         # 操作
+        if action == action_show_files_under_dir:
+            action_show_files_under_dir_func()
         if action == action_open_folder:
             action_open_folder_func()            
         elif action == action_open_file_or_dir:
