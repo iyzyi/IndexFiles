@@ -511,26 +511,35 @@ class MySqlite:
                 if target_path.startswith(vol_path):
                     target_root_vol_path = vol_path
                     target_root_vol_name = vol_name
+                    break
         if target_root_vol_path == '' or target_root_vol_name == '':
             print('[ERROR] 已索引的目录中不包含目标文件夹')
             return None
 
-        # 获取target_path在vol中对应的id        
-        folder_names = target_path[len(vol_path):].replace('/', '\\').split('\\')
-        folder_id = 1
-        if not (len(folder_names) == 1 and folder_names[0] == ''):
-            success = True
-            for folder_name in folder_names:
-                sql = "SELECT * FROM {} WHERE pid={} and name='{}'".format(target_root_vol_name, folder_id, folder_name)
-                self.cur.execute(sql)
-                res = self.cur.fetchall()
-                if len(res) > 0:
-                    folder_id = res[0][0]
-                else:
-                    success = False
-            if not success:
-                print('[ERROR] 已索引的目录中未查找到目标文件夹')
-                return None
+        # 获取target_path在vol中对应的id
+        if vol_path == target_path:
+            folder_id = 1
+
+        else:
+            folder_id = 1
+            temp = target_path[len(vol_path):]
+            if temp[0] == '\\' or temp[0] == '/':
+                temp = temp[1:]
+            folder_names = temp.replace('/', '\\').split('\\')
+
+            if not (len(folder_names) == 1 and folder_names[0] == ''):
+                success = True
+                for folder_name in folder_names:
+                    sql = "SELECT * FROM {} WHERE pid={} and name='{}'".format(target_root_vol_name, folder_id, folder_name)
+                    self.cur.execute(sql)
+                    res = self.cur.fetchall()
+                    if len(res) > 0:
+                        folder_id = res[0][0]
+                    else:
+                        success = False
+                if not success:
+                    print('[ERROR] 已索引的目录中未查找到目标文件夹')
+                    return None
         
         # 显示目录下的所有文件（夹）
         return self.ShowFilesUnderDirByID(target_root_vol_name, folder_id)
