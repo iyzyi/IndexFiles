@@ -16,7 +16,7 @@
 
 ## 下载exe
 
-[Release 文件检索 v1.2](https://github.com/iyzyi/IndexFiles/releases/tag/v1.2)
+[Release 文件检索 v1.3](https://github.com/iyzyi/IndexFiles/releases/tag/v1.3)
 
 ### 打包exe
 

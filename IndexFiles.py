@@ -20,10 +20,21 @@ def merge_path(path1, path2):
 def get_current_time_stamp():
     return int(datetime.datetime.now().timestamp())
 
+def path_filter(path):
+    path_regex = [r'^[a-zA-Z]:\\System Volume Information$', r'^[a-zA-Z]:\\\$RECYCLE\.BIN$']
+    for regex in path_regex:
+        res = re.search(regex, path)
+        if res:
+            return True
+    return False
+
 
 # 删除一个文件只会更新其父文件夹的修改时间，不会更改祖先文件夹的修改时间，
 # 因而需要通过此函数，递归更新所有祖先文件夹的修改时间。
 def update_folder_modify_time(path):
+    if path_filter(path):
+        return
+
     try:
         files = os.listdir(path)
     except PermissionError:
@@ -38,11 +49,17 @@ def update_folder_modify_time(path):
                 mtime = os.path.getmtime(file_path)
                 if mtime > max_mtime:
                     max_mtime = mtime
-                
+        
+        res = re.search(r'^[a-zA-Z]:\\$', path)
+        if res:
+            return
+        
         self_mtime = os.path.getmtime(path)
         if self_mtime > max_mtime:
             max_mtime = self_mtime
         os.utime(path, (time.time(), max_mtime))
+
+        
         # if self_mtime != max_mtime:
         #     print('{} -> {} \t | {}'.format(self_mtime, max_mtime, path))
 
@@ -227,6 +244,9 @@ class MySqlite:
     
 
     def list_files(self, path, pid, table_name):
+        if path_filter(path):
+            return
+    
         try:
             files = os.listdir(path)
         except PermissionError:
